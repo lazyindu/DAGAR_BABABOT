@@ -8,7 +8,7 @@ from pyrogram.errors import ChatAdminRequired, FloodWait
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from database.ia_filterdb import Media, get_file_details, unpack_new_file_id
 from database.users_chats_db import db
-from info import CHANNELS, ADMINS, AUTH_CHANNEL, LOG_CHANNEL, PICS, BATCH_FILE_CAPTION, CUSTOM_FILE_CAPTION, PROTECT_CONTENT
+from info import *
 from utils import get_settings, get_size, is_subscribed, save_group_settings, temp
 from database.connections_mdb import active_connection
 import re
@@ -23,13 +23,17 @@ async def start(client, message):
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         buttons = [
             [
-                InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/LazyDeveloper')
+                InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/rs_updates')
             ],
             [
                 InlineKeyboardButton('🙆🏻 Help 🦾', url=f"https://t.me/{temp.U_NAME}?start=help"),
             ],[
             InlineKeyboardButton('Watch Tutorial', url='https://youtube.com/LazyDeveloper')
-            ]]
+            ],
+            [
+                InlineKeyboardButton(text=DOWNLOAD_TEXT_NAME,url=DOWNLOAD_TEXT_URL)
+            ]
+            ]
         reply_markup = InlineKeyboardMarkup(buttons)
         await message.reply(script.START_TXT.format(message.from_user.mention if message.from_user else message.chat.title, temp.U_NAME, temp.B_NAME), reply_markup=reply_markup)
         await asyncio.sleep(2) # 😢 https://github.com/LazyDeveloperr/LazyPrincess/blob/master/plugins/p_ttishow.py#L17 😬 wait a bit, before checking.
@@ -46,7 +50,7 @@ async def start(client, message):
             InlineKeyboardButton('➕↖️ Add Me To Your Groups ↗️➕', url=f'http://t.me/{temp.U_NAME}?startgroup=true')
             ],[
             InlineKeyboardButton('🧞‍♀️ Search 🧐', switch_inline_query_current_chat=''),
-            InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/LazyDeveloper')
+            InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/rs_updates')
             ],[
             InlineKeyboardButton('🙆🏻 Help 🦾', callback_data='help'),
             InlineKeyboardButton('♥️ About ♥️', callback_data='about')
@@ -99,7 +103,7 @@ async def start(client, message):
             InlineKeyboardButton('➕↖️ Add Me To Your Groups ↗️➕', url=f'http://t.me/{temp.U_NAME}?startgroup=true')
             ],[
             InlineKeyboardButton('🧞‍♀️ Search 🧐', switch_inline_query_current_chat=''),
-            InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/LazyDeveloper')
+            InlineKeyboardButton('🔔 Updates 🤖', url='https://t.me/rs_updates')
             ],[
             InlineKeyboardButton('🙆🏻 Help 🦾', callback_data='help'),
             InlineKeyboardButton('♥️ About ♥️', callback_data='about')
@@ -218,9 +222,14 @@ async def start(client, message):
     if not files_:
         pre, file_id = ((base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))).decode("ascii")).split("_", 1)
         try:
+            # Create the inline keyboard button with callback_data
+            button = InlineKeyboardButton('▶ Gen Stream / Download Link', callback_data=f'generate_stream_link:{file_id}')
+            # Create the inline keyboard markup with the button
+            keyboard = InlineKeyboardMarkup([[button]])
             msg = await client.send_cached_media(
                 chat_id=message.from_user.id,
                 file_id=file_id,
+                reply_markup=keyboard,
                 protect_content=True if pre == 'filep' else False,
                 )
             filetype = msg.media
@@ -250,13 +259,18 @@ async def start(client, message):
             f_caption=f_caption
     if f_caption is None:
         f_caption = f"{files.file_name}"
+
+    button = InlineKeyboardButton('▶ Gen Stream / Download Link', callback_data=f'generate_stream_link:{file_id}')
+    # Create the inline keyboard markup with the button
+    keyboard = InlineKeyboardMarkup([[button]])
     await client.send_cached_media(
         chat_id=message.from_user.id,
         file_id=file_id,
         caption=f_caption,
+        reply_markup=keyboard,  # Use the created keyboard
         protect_content=True if pre == 'filep' else False,
         )
-                    
+
 
 @Client.on_message(filters.command('channel') & filters.user(ADMINS))
 async def channel_info(bot, message):
@@ -287,7 +301,7 @@ async def channel_info(bot, message):
             f.write(text)
         await message.reply_document(file)
         os.remove(file)
-
+ 
 
 @Client.on_message(filters.command('logs') & filters.user(ADMINS))
 async def log_file(bot, message):
@@ -413,7 +427,8 @@ async def settings(client, message):
     settings = await get_settings(grp_id)
 
     if settings is not None:
-        buttons = [
+        if message.from_user.id in ADMINS:
+            buttons = [
             [
                 InlineKeyboardButton(
                     'Filter Button',
@@ -442,6 +457,69 @@ async def settings(client, message):
                 InlineKeyboardButton(
                     '✅ Yes' if settings["file_secure"] else '❌ No',
                     callback_data=f'setgs#file_secure#{settings["file_secure"]}#{grp_id}',
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    'IMDB',
+                    callback_data=f'setgs#imdb#{settings["imdb"]}#{grp_id}',
+                ),
+                InlineKeyboardButton(
+                    '✅ Yes' if settings["imdb"] else '❌ No',
+                    callback_data=f'setgs#imdb#{settings["imdb"]}#{grp_id}',
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    'Spell Check',
+                    callback_data=f'setgs#spell_check#{settings["spell_check"]}#{grp_id}',
+                ),
+                InlineKeyboardButton(
+                    '✅ Yes' if settings["spell_check"] else '❌ No',
+                    callback_data=f'setgs#spell_check#{settings["spell_check"]}#{grp_id}',
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    'Welcome',
+                    callback_data=f'setgs#welcome#{settings["welcome"]}#{grp_id}',
+                ),
+                InlineKeyboardButton(
+                    '✅ Yes' if settings["welcome"] else '❌ No',
+                    callback_data=f'setgs#welcome#{settings["welcome"]}#{grp_id}',
+                ),
+            ],
+        ]
+        else:
+            buttons = [
+            [
+                InlineKeyboardButton(
+                    'Filter Button',
+                    callback_data=f'setgs#button#{settings["button"]}#{grp_id}',
+                ),
+                InlineKeyboardButton(
+                    'Single' if settings["button"] else 'Double',
+                    callback_data=f'setgs#button#{settings["button"]}#{grp_id}',
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    'Bot PM',
+                    callback_data=f'setgs#botpm#{settings["botpm"]}#{grp_id}',
+                ),
+                InlineKeyboardButton(
+                    '✅ Yes' if settings["botpm"] else '❌ No',
+                    callback_data=f'setgs#botpm#{settings["botpm"]}#{grp_id}',
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    'File Secure',
+                    callback_data=f'exit',
+                ),
+                InlineKeyboardButton(
+                    '✅ Yes' if settings["file_secure"] else '❌ No',
+                    callback_data=f'exit',
                 ),
             ],
             [
